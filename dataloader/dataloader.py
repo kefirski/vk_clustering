@@ -130,7 +130,7 @@ class Dataloader():
         indexes = np.random.choice(self.indexes[target], size=batch_size)
 
         target = [self.data[index] for index in indexes]
-        input = [self.corrupt_line(line, p=0.23) for line in target]
+        input = [self.corrupt_line(line, p=0.35) for line in target]
 
         target = [line[1:] for line in target]
         input = [line[:-1] for line in input]
@@ -160,3 +160,6 @@ class Dataloader():
     def corrupt_line(self, line, p=0.2):
         return [self.token_to_idx[random.choice(self.idx_to_token)] if binomial(1, p, size=1)[0] == 1 else idx
                 for idx in line]
+
+    def sample_line(self, probs):
+        return ''.join([self.idx_to_token[np.argmax(p)] for p in probs])

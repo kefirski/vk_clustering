@@ -34,7 +34,7 @@ if __name__ == "__main__":
     t.set_num_threads(args.num_threads)
     loader = Dataloader('./dataloader/data/')
 
-    model = Autoencoder(d_size=400, vocab_size=loader.vocab_size, max_len=loader.max_seq_len)
+    model = Autoencoder(d_size=100, vocab_size=loader.vocab_size, max_len=loader.max_seq_len)
     if args.use_cuda:
         model = model.cuda()
 
@@ -50,7 +50,7 @@ if __name__ == "__main__":
         for step in range(args.steps):
             input, target = loader.torch(args.batch_size, 'train', args.use_cuda, volatile=False)
             nll, penalty = model.loss(input, target, criterion, eval=False)
-            loss = (nll + penalty)/step
+            loss = (nll + penalty) / args.steps
             loss.backward()
         optimizer.step()
 
@@ -64,5 +64,14 @@ if __name__ == "__main__":
 
             print('i {}, nll {} penalty {}'.format(i, nll.numpy(), penalty.numpy()))
             print('_________')
+        if i % 50 == 0:
+            input, target = loader.torch(1, 'valid', args.use_cuda, volatile=True)
+            out, _ = model(input)
+            out, target = out.cpu().data.numpy()[0], target.cpu().data.numpy()[0]
+            print(''.join([loader.idx_to_token[idx] for idx in target]))
+            print('_________')
+            print(loader.sample_line(out))
+
+
 
     t.save(model.cpu().state_dict(), args.save)
