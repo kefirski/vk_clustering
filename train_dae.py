@@ -50,11 +50,11 @@ if __name__ == "__main__":
         for step in range(args.steps):
             input, target = loader.torch(args.batch_size, 'train', args.use_cuda, volatile=False)
             nll, penalty = model.loss(input, target, criterion, eval=False)
-            loss = nll + penalty
+            loss = (nll + penalty)/step
             loss.backward()
         optimizer.step()
 
-        if i % 100 == 0:
+        if i % 10 == 0:
             input, target = loader.torch(args.batch_size, 'valid', args.use_cuda, volatile=True)
             nll, penalty = model.loss(input, target, criterion, eval=True)
             nll, penalty = nll.cpu().data, penalty.cpu().data
