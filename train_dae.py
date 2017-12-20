@@ -21,6 +21,8 @@ if __name__ == "__main__":
                         help='use cuda (default: False)')
     parser.add_argument('--lr', type=float, default=0.0005, metavar='LR',
                         help='learning rate (default: 0.0005)')
+    parser.add_argument('--steps', type=int, default=10, metavar='S',
+                        help='num steps before optimization step (default: 10)')
     parser.add_argument('--save', type=str, default='trained_model', metavar='TS',
                         help='path where save trained model to (default: "trained_model")')
     parser.add_argument('--tensorboard', type=str, default='default_tb', metavar='TB',
@@ -45,10 +47,11 @@ if __name__ == "__main__":
     for i in range(args.num_iterations):
         optimizer.zero_grad()
 
-        input, target = loader.torch(args.batch_size, 'train', args.use_cuda, volatile=False)
-        nll, penalty = model.loss(input, target, criterion, eval=False)
-        loss = nll + penalty
-        loss.backward()
+        for step in range(args.steps):
+            input, target = loader.torch(args.batch_size, 'train', args.use_cuda, volatile=False)
+            nll, penalty = model.loss(input, target, criterion, eval=False)
+            loss = nll + penalty
+            loss.backward()
         optimizer.step()
 
         if i % 100 == 0:
@@ -62,4 +65,4 @@ if __name__ == "__main__":
             print('i {}, nll {} penalty {}'.format(i, nll.numpy(), penalty.numpy()))
             print('_________')
 
-    t.save(model.encoder.cpu().state_dict(), args.save)
+    t.save(model.cpu().state_dict(), args.save)

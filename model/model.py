@@ -23,10 +23,10 @@ class Autoencoder(nn.Module):
             ResNet(d_size, 2 * d_size, dilation=1),
             ResNet(d_size, 2 * d_size, dilation=2),
             ResNet(d_size, 2 * d_size, dilation=4),
-            ResNet(d_size, 2 * d_size, dilation=8),
-
-            EmbeddingAttention(d_size, 5, 0.15)
+            ResNet(d_size, 2 * d_size, dilation=8)
         )
+
+        self.attention = EmbeddingAttention(d_size, 5, 0.15)
 
         self.decoder = nn.Sequential(
             ResNet(6 * d_size, 4 * d_size, kernel_size=3, dilation=1),
@@ -40,9 +40,11 @@ class Autoencoder(nn.Module):
         :return: An float tensor with shape of [batch_size, seq_len, vocab_size]
         """
 
+        mask = t.eq(input, 0).data
         input = self.embeddings(input)
 
-        sentence_embedding, penalty = self.encoder(input)
+        hidden_seq = self.encoder(input)
+        sentence_embedding, penalty = self.attention(hidden_seq, mask)
 
         sentence_embedding = sentence_embedding.unsqueeze(1).repeat(1, input.size(1), 1)
 
