@@ -10,17 +10,18 @@ class Autoencoder(nn.Module):
     def __init__(self, d_size, vocab_size, max_len):
         super(Autoencoder, self).__init__()
 
+        self.vocab_size = vocab_size
+
         self.embeddings = PositionalEmbeddings(vocab_size, max_len, d_size)
 
         self.encoder = nn.Sequential(
-            ResNet(d_size, 2 * d_size, kernel_size=3, dilation=1),
-            ResNet(d_size, 2 * d_size, kernel_size=3, dilation=2),
-            ResNet(d_size, 2 * d_size, kernel_size=3, dilation=4),
+            ResNet(d_size, 2 * d_size, dilation=1),
+            ResNet(d_size, 2 * d_size, dilation=2),
+            ResNet(d_size, 2 * d_size, dilation=4),
 
-            ResNet(d_size, 2 * d_size, kernel_size=3, dilation=1),
-            ResNet(d_size, 2 * d_size, kernel_size=3, dilation=2),
-            ResNet(d_size, 2 * d_size, kernel_size=3, dilation=4),
-            ResNet(d_size, 2 * d_size, kernel_size=3, dilation=8),
+            ResNet(d_size, 2 * d_size, dilation=1),
+            ResNet(d_size, 2 * d_size, dilation=2),
+            ResNet(d_size, 2 * d_size, dilation=4),
 
             EmbeddingAttention(d_size, 5, 0.15)
         )
@@ -34,7 +35,7 @@ class Autoencoder(nn.Module):
     def forward(self, input):
         """
         :param input: An long tensor with shape of [batch_size, seq_len]
-        :return:
+        :return: An float tensor with shape of [batch_size, seq_len, vocab_size]
         """
 
         input = self.embeddings(input)
@@ -46,3 +47,23 @@ class Autoencoder(nn.Module):
         decoder_input = t.cat([input, sentence_embedding], 2)
         decoder_out = self.decoder(decoder_input)
         return self.out(decoder_out), penalty
+
+    def loss(self, input, target, criterion, eval=False):
+
+        if eval:
+            self.eval()
+        else:
+            self.train()
+
+        out, penalty = self(input)
+        out = out.view(-1, self.vocab_size)
+        target = target.view(-1)
+
+        nll = criterion(out, target)
+
+        return nll, penalty
+
+    def learnable_parameters(self):
+        for p in self.parameters():
+            if p.requires_grad:
+                yield p

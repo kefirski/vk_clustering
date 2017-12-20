@@ -127,11 +127,10 @@ class Dataloader():
         :return: target tensors
         """
 
-        source = self.indexes['valid'] + self.indexes['train'] if target == 'all' else self.indexes[target]
-        indexes = np.random.choice(source, size=batch_size)
+        indexes = np.random.choice(self.indexes[target], size=batch_size)
 
         target = [self.data[index] for index in indexes]
-        input = [self.corrupt_line(line, p=0.2) for line in target]
+        input = [self.corrupt_line(line, p=0.23) for line in target]
 
         target = [line[1:] for line in target]
         input = [line[:-1] for line in input]

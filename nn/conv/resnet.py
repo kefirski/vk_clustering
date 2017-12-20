@@ -11,7 +11,7 @@ class ResNet(nn.Module):
         self.residual_block = nn.Sequential(
             LayerNorm(input_size),
             nn.ReLU(),
-            Conv1d(input_size, hidden_size, kernel_size=1, dilation=dilation),
+            Conv1d(input_size, hidden_size, kernel_size=1),
 
             LayerNorm(hidden_size),
             nn.ReLU(),
@@ -20,7 +20,7 @@ class ResNet(nn.Module):
 
             LayerNorm(hidden_size),
             nn.ReLU(),
-            Conv1d(hidden_size, input_size, kernel_size=1, dilation=dilation),
+            Conv1d(hidden_size, input_size, kernel_size=1),
         )
 
     def forward(self, input):
