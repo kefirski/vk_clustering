@@ -4,6 +4,7 @@ import torch as t
 import torch.nn as nn
 from tensorboardX import SummaryWriter
 from torch.optim import Adam
+import torch.nn.functional as F
 
 from dataloader import Dataloader
 from model import Autoencoder
@@ -67,6 +68,7 @@ if __name__ == "__main__":
         if i % 50 == 0:
             input, target = loader.torch(1, 'valid', args.use_cuda, volatile=True)
             out, _ = model(input)
+            out = F.softmax(out, dim=2)
             out, target = out.cpu().data.numpy()[0], target.cpu().data.numpy()[0]
             print(''.join([loader.idx_to_token[idx] for idx in target]))
             print('_________')
