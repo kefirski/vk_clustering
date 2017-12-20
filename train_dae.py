@@ -69,8 +69,10 @@ if __name__ == "__main__":
             input, target = loader.torch(1, 'valid', args.use_cuda, volatile=True)
             out, _ = model(input)
             out = F.softmax(out, dim=2)
-            out, target = out.cpu().data.numpy()[0], target.cpu().data.numpy()[0]
+            input, out, target = input.cpu().data.numpy()[0], out.cpu().data.numpy()[0], target.cpu().data.numpy()[0]
             print(''.join([loader.idx_to_token[idx] for idx in target]))
+            print('_________')
+            print(''.join([loader.idx_to_token[idx] for idx in input]))
             print('_________')
             print(loader.sample_line(out))
 

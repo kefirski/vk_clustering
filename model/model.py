@@ -29,8 +29,8 @@ class Autoencoder(nn.Module):
         self.attention = EmbeddingAttention(d_size, 5, 0.15)
 
         self.decoder = nn.Sequential(
-            ResNet(6 * d_size, 4 * d_size, kernel_size=3, dilation=1),
-            ResNet(6 * d_size, 4 * d_size, kernel_size=3, dilation=2),
+            ResNet(6 * d_size, 4 * d_size, kernel_size=3, dilation=1, autoregressive=True),
+            ResNet(6 * d_size, 4 * d_size, kernel_size=3, dilation=2, autoregressive=True),
         )
         self.out = nn.Linear(6 * d_size, vocab_size)
 
