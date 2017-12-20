@@ -18,10 +18,12 @@ class Autoencoder(nn.Module):
             ResNet(d_size, 2 * d_size, dilation=1),
             ResNet(d_size, 2 * d_size, dilation=2),
             ResNet(d_size, 2 * d_size, dilation=4),
+            ResNet(d_size, 2 * d_size, dilation=8),
 
             ResNet(d_size, 2 * d_size, dilation=1),
             ResNet(d_size, 2 * d_size, dilation=2),
             ResNet(d_size, 2 * d_size, dilation=4),
+            ResNet(d_size, 2 * d_size, dilation=8),
 
             EmbeddingAttention(d_size, 5, 0.15)
         )
