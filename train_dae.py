@@ -13,7 +13,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='inf')
     parser.add_argument('--num-iterations', type=int, default=250_000, metavar='NI',
                         help='num iterations (default: 250_000)')
-    parser.add_argument('--batch-size', type=int, default=2, metavar='BS',
+    parser.add_argument('--batch-size', type=int, default=40, metavar='BS',
                         help='batch size (default: 40)')
     parser.add_argument('--num-threads', type=int, default=4, metavar='BS',
                         help='num threads (default: 4)')
@@ -61,3 +61,5 @@ if __name__ == "__main__":
 
             print('i {}, nll {} penalty {}'.format(i, nll.numpy(), penalty.numpy()))
             print('_________')
+
+    t.save(model.encoder.cpu().state_dict(), args.save)
