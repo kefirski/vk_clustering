@@ -99,6 +99,8 @@ class Dataloader():
                              for token in self.go_token + self.data[index] + self.stop_token]
                      for index in self.data}
 
+        self.max_seq_len = max([len(self.data[index]) for index in self.data])
+
         with open(self.idx_file, 'wb') as f:
             cPickle.dump(self.idx_to_token, f)
 
@@ -117,6 +119,8 @@ class Dataloader():
         self.data = cPickle.load(open(self.tensor_file, "rb"))
         self.indexes = cPickle.load(open(self.indexes_file, "rb"))
 
+        self.max_seq_len = max([len(self.data[index]) for index in self.data])
+
     def next_batch(self, batch_size, target):
         """
         :param batch_size: number of selected data elements
@@ -127,7 +131,10 @@ class Dataloader():
         indexes = np.random.choice(source, size=batch_size)
 
         target = [self.data[index] for index in indexes]
-        input = [self.corrupt_line(line, p=0.15) for line in target]
+        input = [self.corrupt_line(line, p=0.2) for line in target]
+
+        target = [line[1:] for line in target]
+        input = [line[:-1] for line in input]
 
         return self.pad_input(input), self.pad_input(target)
 
@@ -140,7 +147,7 @@ class Dataloader():
         if cuda:
             input, target = input.cuda(), target.cuda()
 
-        return text, target
+        return input, target
 
     @staticmethod
     def pad_input(sequences):

@@ -5,7 +5,7 @@ from ..utils import LayerNorm
 
 
 class ResNet(nn.Module):
-    def __init__(self, input_size, hidden_size, kernel_size, dilation=1, autoregressive=False):
+    def __init__(self, input_size, hidden_size, kernel_size=3, dilation=1, autoregressive=False):
         super(ResNet, self).__init__()
 
         self.residual_block = nn.Sequential(
@@ -25,8 +25,9 @@ class ResNet(nn.Module):
 
     def forward(self, input):
         """
-        :param input: An float tensor with shape of [batch_size, input_size, seq_len]
-        :return: An float tensor with shape of [batch_size, input_size, seq_len]
+        :param input: An float tensor with shape of [batch_size, seq_len, input_size]
+        :return: An float tensor with shape of [batch_size, seq_len, out_size]
         """
 
-        return input + self.residual_block(input)
+        input = input.transpose(1, 2)
+        return (input + self.residual_block(input)).transpose(1, 2)
