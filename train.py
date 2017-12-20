@@ -47,8 +47,6 @@ if __name__ == "__main__":
 
         input, target = loader.torch(args.batch_size, 'train', args.use_cuda, volatile=False)
         nll, penalty = model.loss(input, target, criterion, eval=False)
-        print(nll, penalty)
-        1/0
         loss = nll + penalty
         loss.backward()
         optimizer.step()
