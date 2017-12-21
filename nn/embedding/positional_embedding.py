@@ -20,7 +20,7 @@ class PositionalEmbeddings(nn.Module):
         self.embeddings.weight.data[0].fill_(0)
         self.position_encoding_init()
 
-    def forward(self, input, lengths):
+    def forward(self, input, lengths=None):
         batch_size, seq_len = input.size()
 
         positional = Variable(t.LongTensor([i for i in range(1, seq_len + 1)])).repeat(batch_size).view(batch_size, -1)
@@ -31,7 +31,7 @@ class PositionalEmbeddings(nn.Module):
         positional.data.masked_fill_(padding_mask, 0)
 
         result = self.embeddings(input) + self.positional_embeddings(positional)
-        return pack_padded_sequence(result, lengths, batch_first=True)
+        return pack_padded_sequence(result, lengths, batch_first=True) if lengths is not None else result
 
     def position_encoding_init(self):
         encoding = np.array([

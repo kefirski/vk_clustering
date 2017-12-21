@@ -1,4 +1,4 @@
-from math import pi, log
+from math import pi, log, tanh
 
 import torch as t
 import torch.nn as nn
@@ -12,7 +12,7 @@ from .encoder import Encoder
 
 
 class VaDE(nn.Module):
-    def __init__(self, num_clusters, latent_size, embedding_size, vocab_size, max_len, free_bits=2.):
+    def __init__(self, embedding_size, latent_size, vocab_size, max_len, num_clusters, free_bits=1.2):
         super(VaDE, self).__init__()
 
         self.latent_size = latent_size
@@ -37,7 +37,7 @@ class VaDE(nn.Module):
 
         self.free_bits = nn.Parameter(t.FloatTensor([free_bits]), requires_grad=False)
 
-    def forward(self, input, lengths):
+    def forward(self, input, lengths=None):
         """
         :param input: An long tensor with shape of [batch_size, seq_len]
         :param lengths: An array of batch lengths
@@ -45,6 +45,7 @@ class VaDE(nn.Module):
         """
 
         batch_size, seq_len = input.size()
+        cuda = input.is_cuda
 
         input = self.embeddings(input, lengths)
 
@@ -52,8 +53,10 @@ class VaDE(nn.Module):
         std = t.exp(0.5 * logvar)
 
         eps = Variable(t.randn(batch_size, self.latent_size))
-        z = eps * std + mu
+        if cuda:
+            eps = eps.cuda()
 
+        z = eps * std + mu
         kld = self._kl_divergence(z, mu, logvar)
 
         result, _ = self.decoder(z, input)
@@ -61,6 +64,42 @@ class VaDE(nn.Module):
         out = self.out(result).view(-1, seq_len, self.vocab_size)
 
         return out, kld
+
+    def loss(self, input, target, lengths, criterion, itetation=None, eval=False):
+
+        batch_size, _ = target.size()
+
+        if eval:
+            self.eval()
+        else:
+            self.train()
+
+        out, kld = self(input, lengths)
+
+        out = out.view(-1, self.vocab_size)
+        target = target.view(-1)
+
+        nll = criterion(out, target) / batch_size
+
+        return nll, kld * (self.kl_coef(itetation) if itetation is not None else 1)
+
+    def get_cluster(self, input, lengths=None):
+        batch_size, seq_len = input.size()
+        cuda = input.is_cuda
+
+        input = self.embeddings(input, lengths)
+
+        mu, logvar = self.encoder(input)
+        std = t.exp(0.5 * logvar)
+
+        eps = Variable(t.randn(batch_size, self.latent_size))
+        if cuda:
+            eps = eps.cuda()
+
+        z = eps * std + mu
+
+        cat_posteriors, _ = self.cat_posteriors(z)
+        return cat_posteriors
 
     def _kl_divergence(self, z, mu, logvar):
         cat_posteriors, cat_priors = self.cat_posteriors(z)
@@ -72,20 +111,6 @@ class VaDE(nn.Module):
 
         kl = cat_kl + z_kl
         return t.max(t.stack([kl, self.free_bits.expand_as(kl)], 1), 1)[0].mean()
-
-    @staticmethod
-    def _kl_cat(posteriors, priors):
-        return (posteriors * t.log(posteriors / (priors + 1e-8))).sum(1)
-
-    @staticmethod
-    def _kl_gauss(mu, logvar, mu_c, logvar_c):
-        return 0.5 * (logvar_c - logvar + t.exp(logvar) / (t.exp(logvar_c) + 1e-8) +
-                      t.pow(mu - mu_c, 2) / (t.exp(logvar_c) + 1e-8) - 1).sum(1)
-
-    @staticmethod
-    def _log_gauss(z, mu, logvar):
-        std = t.exp(0.5 * logvar)
-        return - 0.5 * (t.pow(z - mu, 2) * t.pow(std + 1e-8, -2) + 2 * t.log(std + 1e-8) + log(2 * pi)).sum(1)
 
     def cat_posteriors(self, z):
         """
@@ -103,3 +128,26 @@ class VaDE(nn.Module):
         evidence = full_prob.sum(1)
 
         return full_prob / (evidence.unsqueeze(1).repeat(1, self.num_clusters)), cats.expand_as(q_z_c)
+
+    def learnable_parameters(self):
+        for par in self.parameters():
+            if par.requires_grad:
+                yield par
+
+    @staticmethod
+    def kl_coef(i):
+        return tanh(i / 40_000)
+
+    @staticmethod
+    def _kl_cat(posteriors, priors):
+        return (posteriors * t.log(posteriors / (priors + 1e-8))).sum(1)
+
+    @staticmethod
+    def _kl_gauss(mu, logvar, mu_c, logvar_c):
+        return 0.5 * (logvar_c - logvar + t.exp(logvar) / (t.exp(logvar_c) + 1e-8) +
+                      t.pow(mu - mu_c, 2) / (t.exp(logvar_c) + 1e-8) - 1).sum(1)
+
+    @staticmethod
+    def _log_gauss(z, mu, logvar):
+        std = t.exp(0.5 * logvar)
+        return - 0.5 * (t.pow(z - mu, 2) * t.pow(std + 1e-8, -2) + 2 * t.log(std + 1e-8) + log(2 * pi)).sum(1)
