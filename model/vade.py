@@ -32,8 +32,8 @@ class VaDE(nn.Module):
         )
 
         self.p_c_logits = nn.Parameter(t.randn(num_clusters))
-        self.p_z_mu = nn.Parameter(t.randn(num_clusters, latent_size))
-        self.p_z_logvar = nn.Parameter(t.randn(num_clusters, latent_size))
+        self.p_z_mu = nn.Parameter(t.zeros(num_clusters, latent_size))
+        self.p_z_logvar = nn.Parameter(t.zeros(num_clusters, latent_size))
 
         self.free_bits = nn.Parameter(t.FloatTensor([free_bits]), requires_grad=False)
 
@@ -56,7 +56,7 @@ class VaDE(nn.Module):
 
         kld = self._kl_divergence(z, mu, logvar)
 
-        result = self.decoder(z, input)
+        result, _ = self.decoder(z, input)
         result = result.view(batch_size * seq_len, -1)
         out = self.out(result).view(-1, seq_len, self.vocab_size)
 
@@ -95,10 +95,11 @@ class VaDE(nn.Module):
         """
         cats = F.softmax(self.p_c_logits, dim=0)
 
-        q_z_c = t.stack([t.exp(self._log_gauss(z, self.p_z_mu[i].expand_as(z), self.p_z_logvar[i].expand_as(z)))
+        q_z_c = t.stack([self._log_gauss(z, self.p_z_mu[i].expand_as(z), self.p_z_logvar[i].expand_as(z))
                          for i in range(self.num_clusters)], 1)
+        q_z_c = t.exp(q_z_c) + 1e-8
 
         full_prob = q_z_c * cats.expand_as(q_z_c)
         evidence = full_prob.sum(1)
 
-        return full_prob / evidence.unsqueeze(1).repeat(1, self.num_clusters), cats.expand_as(q_z_c)
+        return full_prob / (evidence.unsqueeze(1).repeat(1, self.num_clusters)), cats.expand_as(q_z_c)

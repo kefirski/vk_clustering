@@ -144,7 +144,7 @@ class Dataloader():
         if cuda:
             input, target = input.cuda(), target.cuda()
 
-        return input, target, length
+        return input, target, lengths
 
     @staticmethod
     def pad_input(sequences):

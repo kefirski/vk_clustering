@@ -44,4 +44,4 @@ class VecToSeq(nn.Module):
         result, fs = self.rnn(input, initial_state)
         result, _ = pad_packed_sequence(result, batch_first=True)
 
-        return result, fs
+        return result.contiguous(), fs
