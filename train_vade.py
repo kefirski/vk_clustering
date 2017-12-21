@@ -84,6 +84,8 @@ if __name__ == "__main__":
             print('_________')
             print(cat_posteriors)
             print('_________')
+            print(F.softmax(model.p_c_logits, dim=0).data.cpu().numpy())
+            print('_________')
 
         if (i + 1) % 3000 == 0:
             t.save(model.cpu().state_dict(), args.save)

@@ -31,9 +31,9 @@ class VaDE(nn.Module):
             weight_norm(nn.Linear(embedding_size * 6, vocab_size))
         )
 
-        self.p_c_logits = nn.Parameter(t.randn(num_clusters))
-        self.p_z_mu = nn.Parameter(t.zeros(num_clusters, latent_size))
-        self.p_z_logvar = nn.Parameter(t.zeros(num_clusters, latent_size))
+        self.p_c_logits = nn.Parameter(t.randn(num_clusters) * 0.1 + 1.)
+        self.p_z_mu = nn.Parameter(t.randn(num_clusters, latent_size) * 1.5)
+        self.p_z_logvar = nn.Parameter(t.randn(num_clusters, latent_size) * 0.2 + 1)
 
         self.free_bits = nn.Parameter(t.FloatTensor([free_bits]), requires_grad=False)
 
@@ -122,12 +122,13 @@ class VaDE(nn.Module):
 
         q_z_c = t.stack([self._log_gauss(z, self.p_z_mu[i].expand_as(z), self.p_z_logvar[i].expand_as(z))
                          for i in range(self.num_clusters)], 1)
-        q_z_c = t.exp(q_z_c) + 1e-8
+        q_z_c = t.exp(q_z_c.double()) + 1e-50
 
-        full_prob = q_z_c * cats.expand_as(q_z_c)
+        full_prob = q_z_c * cats.expand_as(q_z_c).double()
         evidence = full_prob.sum(1)
 
-        return full_prob / (evidence.unsqueeze(1).repeat(1, self.num_clusters)), cats.expand_as(q_z_c)
+        result = full_prob / (evidence.double().unsqueeze(1).repeat(1, self.num_clusters))
+        return result.float(), cats.expand_as(q_z_c)
 
     def learnable_parameters(self):
         for par in self.parameters():
@@ -136,7 +137,7 @@ class VaDE(nn.Module):
 
     @staticmethod
     def kl_coef(i):
-        return tanh(i / 40_000)
+        return tanh(i / 6_000)
 
     @staticmethod
     def _kl_cat(posteriors, priors):
