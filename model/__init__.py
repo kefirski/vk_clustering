@@ -1,1 +1,1 @@
-from .model import Autoencoder
+from .VaDE import VaDE

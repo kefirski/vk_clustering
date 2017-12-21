@@ -1,11 +1,9 @@
 import os
-import random
 import re
 from random import shuffle
 
 import numpy as np
 import torch as t
-from numpy.random import binomial
 from six.moves import cPickle
 from torch.autograd import Variable
 
@@ -130,23 +128,23 @@ class Dataloader():
         indexes = np.random.choice(self.indexes[target], size=batch_size)
 
         target = [self.data[index] for index in indexes]
-        input = [self.corrupt_line(line, p=0.35) for line in target]
+        target = self.lines(target)
 
+        input = [line[:-1] for line in target]
         target = [line[1:] for line in target]
-        input = [line[:-1] for line in input]
 
-        return self.pad_input(input), self.pad_input(target)
+        return self.pad_input(input), self.pad_input(target), [len(line) for line in input]
 
     def torch(self, batch_size, target, cuda, volatile=False):
 
-        input, target = self.next_batch(batch_size, target)
+        input, target, lengths, = self.next_batch(batch_size, target)
         input, target = [Variable(t.from_numpy(var), volatile=volatile)
                          for var in [input, target]]
 
         if cuda:
             input, target = input.cuda(), target.cuda()
 
-        return input, target
+        return input, target, length
 
     @staticmethod
     def pad_input(sequences):
@@ -157,9 +155,15 @@ class Dataloader():
         return np.array([line + [0] * (max_length - lengths[i])
                          for i, line in enumerate(sequences)])
 
-    def corrupt_line(self, line, p=0.2):
-        return [self.token_to_idx[random.choice(self.idx_to_token)] if binomial(1, p, size=1)[0] == 1 else idx
-                for idx in line]
+    @staticmethod
+    def lines(lines):
+        """
+        :param lines: An array of batches with length batch_size
+        :return: Sorted array of batches
+        """
+
+        argsort = np.argsort([len(line) for line in lines])[::-1]
+        return [lines[i] for i in argsort]
 
     def sample_line(self, probs):
         return ''.join([self.idx_to_token[np.argmax(p)] for p in probs])
