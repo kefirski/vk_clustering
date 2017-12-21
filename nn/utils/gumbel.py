@@ -15,6 +15,8 @@ def GumbelSoftmax(input, temperatute, hard=False):
 
     noise = Variable(t.rand(batch_size, input_size))
     noise = -t.log(-t.log(noise + 1e-20) + 1e-20)
+    if input.is_cuda:
+        noise = noise.cuda()
 
     result = F.softmax((input + noise) / temperatute, dim=1)
 
