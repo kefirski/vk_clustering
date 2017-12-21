@@ -1,1 +1,1 @@
-from .VaDE import VaDE
+from .vade import VaDE

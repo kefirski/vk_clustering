@@ -42,5 +42,6 @@ class VecToSeq(nn.Module):
             input = pack_padded_sequence(input, lengths, batch_first=True)
 
         result, fs = self.rnn(input, initial_state)
+        result, _ = pad_packed_sequence(result, batch_first=True)
 
         return result, fs

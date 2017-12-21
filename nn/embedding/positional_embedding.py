@@ -3,6 +3,7 @@ import torch as t
 import torch.nn as nn
 from torch.autograd import Variable
 from torch.nn.init import xavier_normal
+from torch.nn.utils.rnn import pack_padded_sequence
 
 
 class PositionalEmbeddings(nn.Module):
@@ -19,7 +20,7 @@ class PositionalEmbeddings(nn.Module):
         self.embeddings.weight.data[0].fill_(0)
         self.position_encoding_init()
 
-    def forward(self, input):
+    def forward(self, input, lengths):
         batch_size, seq_len = input.size()
 
         positional = Variable(t.LongTensor([i for i in range(1, seq_len + 1)])).repeat(batch_size).view(batch_size, -1)
@@ -29,7 +30,8 @@ class PositionalEmbeddings(nn.Module):
         padding_mask = t.eq(input, 0).data
         positional.data.masked_fill_(padding_mask, 0)
 
-        return self.embeddings(input) + self.positional_embeddings(positional)
+        result = self.embeddings(input) + self.positional_embeddings(positional)
+        return pack_padded_sequence(result, lengths, batch_first=True)
 
     def position_encoding_init(self):
         encoding = np.array([
