@@ -6,10 +6,10 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.utils.weight_norm import weight_norm
 
+from nn.conv import ResNet
 from nn.embedding import PositionalEmbeddings
-from nn.recurrent import VecToSeq
+from nn.recurrent import VecToSeq, SeqToVec
 from nn.utils import GumbelSoftmax
-from .encoder import Encoder
 
 
 class CVaDE(nn.Module):
@@ -22,25 +22,42 @@ class CVaDE(nn.Module):
 
         self.embeddings = PositionalEmbeddings(vocab_size, max_len, embedding_size)
 
-        self.encoder = Encoder(embedding_size, embedding_size * 4, 3, latent_size)
-        self.z_to_cat = nn.Sequential(
-            weight_norm(nn.Linear(latent_size, 2 * latent_size)),
+        self.x_to_hidden = SeqToVec(embedding_size, 800, 3, bidirectional=True)
+
+        self.hidden_to_z = nn.Sequential(
+            weight_norm(nn.Linear(2 * 3 * 800, 1000)),
             nn.SELU(),
 
-            weight_norm(nn.Linear(2 * latent_size, num_clusters))
+            ResNet(1, 3),
+
+            weight_norm(nn.Linear(1000, 400)),
+            nn.SELU(),
+
+            ResNet(1, 3),
+
+            weight_norm(nn.Linear(400, 2 * self.latent_size))
         )
 
-        self.decoder = VecToSeq(embedding_size, latent_size, embedding_size * 3, 3)
-
-        self.out = nn.Sequential(
-            weight_norm(nn.Linear(embedding_size * 3, embedding_size * 6)),
+        self.hidden_to_c = nn.Sequential(
+            weight_norm(nn.Linear(2 * 3 * 800, 300)),
             nn.SELU(),
 
-            weight_norm(nn.Linear(embedding_size * 6, vocab_size))
+            ResNet(1, 5),
+
+            weight_norm(nn.Linear(300, self.num_clusters)),
+        )
+
+        self.decoder = VecToSeq(embedding_size, latent_size, 800, 3)
+
+        self.out = nn.Sequential(
+            weight_norm(nn.Linear(800, 1500)),
+            nn.SELU(),
+
+            weight_norm(nn.Linear(1500, vocab_size))
         )
 
         self.p_c_logits = nn.Parameter(t.ones(num_clusters))
-        self.p_z_mu_logvar = nn.Parameter(t.randn(num_clusters, 2 * latent_size) * 0.2)
+        self.p_z_mu_logvar = nn.Parameter(t.zeros(num_clusters, 2 * latent_size))
 
         self.free_bits = nn.Parameter(t.FloatTensor([free_bits]), requires_grad=False)
 
@@ -56,7 +73,10 @@ class CVaDE(nn.Module):
 
         input = self.embeddings(input, lengths)
 
-        mu, logvar = self.encoder(input)
+        hidden = self.x_to_hidden(input)
+
+        q_mu_logvar = self.hidden_to_z(hidden)
+        mu, logvar = q_mu_logvar[:, :self.latent_size], q_mu_logvar[:, self.latent_size:]
         std = t.exp(0.5 * logvar)
 
         eps = Variable(t.randn(batch_size, self.latent_size))
@@ -64,14 +84,15 @@ class CVaDE(nn.Module):
             eps = eps.cuda()
         z = eps * std + mu
 
-        cat_logits = self.z_to_cat(z)
+        cat_logits = self.hidden_to_cat(hidden)
         kl_cat = self._kl_cat(cat_logits)
 
-        cat = GumbelSoftmax(cat_logits, 0.1, hard=True)
+        cat = GumbelSoftmax(cat_logits, 0.3, hard=False)
         p_mu_logvar = t.mm(cat, self.p_z_mu_logvar)
+
         kl_z = self._kl_gauss(mu, logvar, p_mu_logvar[:, :self.latent_size], p_mu_logvar[:, self.latent_size:])
 
-        kld = kl_cat + kl_z
+        kld = kl_cat * 0.3 + kl_z
         kld = t.max(t.stack([kld, self.free_bits.expand_as(kld)], 1), 1)[0].mean()
 
         result, _ = self.decoder(z, input)
@@ -99,19 +120,10 @@ class CVaDE(nn.Module):
         return nll, kld * (self.kl_coef(itetation) if itetation is not None else 1)
 
     def get_cluster(self, input, lengths=None):
-        batch_size, seq_len = input.size()
-        cuda = input.is_cuda
 
         input = self.embeddings(input, lengths)
-
-        mu, logvar = self.encoder(input)
-        std = t.exp(0.5 * logvar)
-
-        eps = Variable(t.randn(batch_size, self.latent_size))
-        if cuda:
-            eps = eps.cuda()
-        z = eps * std + mu
-        cat_logits = self.z_to_cat(z)
+        hidden = self.x_to_hidden(input)
+        cat_logits = self.hidden_to_cat(hidden)
 
         return F.softmax(cat_logits, dim=1)
 
@@ -137,4 +149,4 @@ class CVaDE(nn.Module):
 
     @staticmethod
     def kl_coef(i):
-        return tanh(i / 6_000)
+        return tanh(i / 3_000)
