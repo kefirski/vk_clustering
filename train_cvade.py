@@ -2,11 +2,12 @@ import argparse
 
 import torch as t
 import torch.nn as nn
+import torch.nn.functional as F
 from tensorboardX import SummaryWriter
 from torch.optim import Adam
 
 from dataloader import Dataloader
-from model import VaDE
+from model import CVaDE
 
 if __name__ == "__main__":
 
@@ -40,7 +41,7 @@ if __name__ == "__main__":
     t.set_num_threads(args.num_threads)
     loader = Dataloader('./dataloader/data/')
 
-    model = VaDE(100, args.latent_size, loader.vocab_size, loader.max_seq_len, args.num_clusters, args.free_bits)
+    model = CVaDE(100, args.latent_size, loader.vocab_size, loader.max_seq_len, args.num_clusters, args.free_bits)
     if args.use_cuda:
         model = model.cuda()
 
