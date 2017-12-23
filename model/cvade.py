@@ -9,7 +9,7 @@ from torch.nn.utils.weight_norm import weight_norm
 from nn.conv import ResNet
 from nn.embedding import PositionalEmbeddings
 from nn.recurrent import VecToSeq, SeqToVec
-from nn.utils import GumbelSoftmax
+from nn.utils import gumbel_softmax
 
 
 class CVaDE(nn.Module):
@@ -87,7 +87,7 @@ class CVaDE(nn.Module):
         cat_logits = self.hidden_to_cat(hidden)
         kl_cat = self._kl_cat(cat_logits)
 
-        cat = GumbelSoftmax(cat_logits, 0.3, hard=False)
+        cat = gumbel_softmax(cat_logits, 0.3, hard=False)
         p_mu_logvar = t.mm(cat, self.p_z_mu_logvar)
 
         kl_z = self._kl_gauss(mu, logvar, p_mu_logvar[:, :self.latent_size], p_mu_logvar[:, self.latent_size:])

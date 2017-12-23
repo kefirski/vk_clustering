@@ -1,1 +1,1 @@
-from .gumbel import GumbelSoftmax
+from .gumbel import gumbel_softmax

@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 
-def GumbelSoftmax(input, temperatute, hard=False):
+def gumbel_softmax(input, temperatute, hard=False):
     """
     :param input: An float tensor with shape of [batch_size, input_size]
     :param temperatute: Non-negative scalar
