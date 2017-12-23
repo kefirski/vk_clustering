@@ -1,7 +1,6 @@
 import torch as t
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, PackedSequence
-import torch.nn.functional as F
 
 
 class VecToSeq(nn.Module):
