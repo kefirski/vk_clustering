@@ -38,7 +38,7 @@ class CVaDE(nn.Module):
             weight_norm(nn.Linear(400, 2 * self.latent_size))
         )
 
-        self.hidden_to_c = nn.Sequential(
+        self.hidden_to_cat = nn.Sequential(
             weight_norm(nn.Linear(2 * 3 * 800, 300)),
             nn.SELU(),
 
