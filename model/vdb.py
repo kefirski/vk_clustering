@@ -1,6 +1,3 @@
-from operator import mul
-from functools import reduce
-
 import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
@@ -75,8 +72,6 @@ class VDB(nn.Module):
 
     def loss(self, input, target, lengths, criterion, eval=False):
 
-        size = reduce(mul, lengths, 1) if eval else 1
-
         batch_size, _ = target.size()
 
         if eval:
@@ -89,7 +84,7 @@ class VDB(nn.Module):
         out = out.view(-1, self.vocab_size)
         target = target.view(-1)
 
-        nll = criterion(out, target) / (batch_size * size)
+        nll = criterion(out, target) / batch_size
 
         return nll, kld
 

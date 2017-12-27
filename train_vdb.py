@@ -83,9 +83,9 @@ if __name__ == "__main__":
             print('_________')
             print(''.join([loader.idx_to_token[idx] for idx in input]))
             print('_________')
-            print(cat_posteriors)
+            print(' '.join(["{0:.2f}".format(i) for i in cat_posteriors]))
             print('_________')
-            print(F.softmax(model.p_c_logits, dim=0).data.cpu().numpy())
+            print(' '.join(["{0:.2f}".format(i) for i in F.softmax(model.p_c_logits, dim=0).data.cpu().numpy()]))
             print('_________')
 
         if (i + 1) % 3000 == 0:
