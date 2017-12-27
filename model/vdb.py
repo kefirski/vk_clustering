@@ -1,4 +1,5 @@
 from operator import mul
+from functools import reduce
 
 import torch as t
 import torch.nn as nn
