@@ -41,7 +41,7 @@ if __name__ == "__main__":
     t.set_num_threads(args.num_threads)
     loader = Dataloader('./dataloader/data/')
 
-    model = VDB(200, args.laten_size, loader.vocab_size, args.num_clusters, args.free_bits)
+    model = VDB(200, args.latent_size, loader.vocab_size, args.num_clusters, args.free_bits)
     if args.use_cuda:
         model = model.cuda()
 
