@@ -7,29 +7,29 @@ from tensorboardX import SummaryWriter
 from torch.optim import Adam
 
 from dataloader import Dataloader
-from model import CVaDE
+from model import VDB
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='inf')
     parser.add_argument('--num-iterations', type=int, default=250_000, metavar='NI',
                         help='num iterations (default: 250_000)')
-    parser.add_argument('--batch-size', type=int, default=40, metavar='BS',
-                        help='batch size (default: 40)')
-    parser.add_argument('--latent-size', type=int, default=100, metavar='LS',
-                        help='latent size (default: 100)')
+    parser.add_argument('--batch-size', type=int, default=80, metavar='BS',
+                        help='batch size (default: 80)')
+    parser.add_argument('--latent-size', type=int, default=150, metavar='LS',
+                        help='latent size (default: 150)')
     parser.add_argument('--num-threads', type=int, default=4, metavar='BS',
                         help='num threads (default: 4)')
-    parser.add_argument('--num-clusters', type=int, default=10, metavar='NC',
-                        help='num clusters (default: 10)')
+    parser.add_argument('--num-clusters', type=int, default=150, metavar='NC',
+                        help='num clusters (default: 150)')
     parser.add_argument('--use-cuda', type=bool, default=False, metavar='CUDA',
                         help='use cuda (default: False)')
     parser.add_argument('--lr', type=float, default=0.0005, metavar='LR',
                         help='learning rate (default: 0.0005)')
     parser.add_argument('--free-bits', type=float, default=1.2, metavar='FB',
                         help='free bits value (default: 1.2)')
-    parser.add_argument('--steps', type=int, default=10, metavar='S',
-                        help='num steps before optimization step (default: 10)')
+    parser.add_argument('--steps', type=int, default=2, metavar='S',
+                        help='num steps before optimization step (default: 2)')
     parser.add_argument('--save', type=str, default='trained_model', metavar='TS',
                         help='path where save trained model to (default: "trained_model")')
     parser.add_argument('--tensorboard', type=str, default='default_tb', metavar='TB',
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     t.set_num_threads(args.num_threads)
     loader = Dataloader('./dataloader/data/')
 
-    model = CVaDE(100, args.latent_size, loader.vocab_size, loader.max_seq_len, args.num_clusters, args.free_bits)
+    model = VDB(200, args.laten_size, loader.vocab_size, args.num_clusters, args.free_bits)
     if args.use_cuda:
         model = model.cuda()
 
@@ -57,7 +57,7 @@ if __name__ == "__main__":
         for step in range(args.steps):
             input, target, lengths = loader.torch(args.batch_size, 'train', args.use_cuda, volatile=False)
 
-            nll, kld = model.loss(input, target, lengths, criterion, i, eval=False)
+            nll, kld = model.loss(input, target, lengths, criterion, eval=False)
             loss = (nll + kld) / args.steps
 
             loss.backward()

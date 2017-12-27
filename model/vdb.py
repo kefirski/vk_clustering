@@ -1,50 +1,35 @@
-from math import tanh
+from operator import mul
 
 import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
 from torch.nn.utils.weight_norm import weight_norm
 
 from nn.conv import ResNet
-from nn.embedding import PositionalEmbeddings
+from nn.embedding import Embeddings
 from nn.recurrent import VecToSeq, SeqToVec
 from nn.utils import gumbel_softmax
 
 
-class CVaDE(nn.Module):
-    def __init__(self, embedding_size, latent_size, vocab_size, max_len, num_clusters, free_bits=1.2):
-        super(CVaDE, self).__init__()
+class VDB(nn.Module):
+    def __init__(self, embedding_size, latent_size, vocab_size, num_clusters, free_bits=1.2):
+        super(VDB, self).__init__()
 
         self.latent_size = latent_size
         self.vocab_size = vocab_size
         self.num_clusters = num_clusters
 
-        self.embeddings = PositionalEmbeddings(vocab_size, max_len, embedding_size)
+        self.embeddings = Embeddings(vocab_size, embedding_size)
 
         self.x_to_hidden = SeqToVec(embedding_size, 800, 3, bidirectional=True)
 
-        self.hidden_to_z = nn.Sequential(
-            weight_norm(nn.Linear(2 * 3 * 800, 1000)),
-            nn.SELU(),
-
-            ResNet(1, 3),
-
-            weight_norm(nn.Linear(1000, 400)),
-            nn.SELU(),
-
-            ResNet(1, 3),
-
-            weight_norm(nn.Linear(400, 2 * self.latent_size))
-        )
-
         self.hidden_to_cat = nn.Sequential(
-            weight_norm(nn.Linear(2 * 3 * 800, 300)),
+            weight_norm(nn.Linear(2 * 3 * 800, 500)),
             nn.SELU(),
 
             ResNet(1, 5),
 
-            weight_norm(nn.Linear(300, self.num_clusters)),
+            weight_norm(nn.Linear(500, self.num_clusters)),
         )
 
         self.decoder = VecToSeq(embedding_size, latent_size, 800, 3)
@@ -57,7 +42,7 @@ class CVaDE(nn.Module):
         )
 
         self.p_c_logits = nn.Parameter(t.ones(num_clusters))
-        self.p_z_mu_logvar = nn.Parameter(t.zeros(num_clusters, 2 * latent_size))
+        self.z = nn.Parameter(t.randn(num_clusters, latent_size))
 
         self.free_bits = nn.Parameter(t.FloatTensor([free_bits]), requires_grad=False)
 
@@ -69,31 +54,17 @@ class CVaDE(nn.Module):
         """
 
         batch_size, seq_len = input.size()
-        cuda = input.is_cuda
 
         input = self.embeddings(input, lengths)
 
         hidden = self.x_to_hidden(input)
-
-        q_mu_logvar = self.hidden_to_z(hidden)
-        mu, logvar = q_mu_logvar[:, :self.latent_size], q_mu_logvar[:, self.latent_size:]
-        std = t.exp(0.5 * logvar)
-
-        eps = Variable(t.randn(batch_size, self.latent_size))
-        if cuda:
-            eps = eps.cuda()
-        z = eps * std + mu
-
         cat_logits = self.hidden_to_cat(hidden)
-        kl_cat = self._kl_cat(cat_logits)
 
-        cat = gumbel_softmax(cat_logits, 0.3, hard=False)
-        p_mu_logvar = t.mm(cat, self.p_z_mu_logvar)
-
-        kl_z = self._kl_gauss(mu, logvar, p_mu_logvar[:, :self.latent_size], p_mu_logvar[:, self.latent_size:])
-
-        kld = kl_cat * 0.3 + kl_z
+        kld = self.kl_divergence(cat_logits) * 0.3
         kld = t.max(t.stack([kld, self.free_bits.expand_as(kld)], 1), 1)[0].mean()
+
+        cat = gumbel_softmax(cat_logits, 0.6, hard=True)
+        z = t.mm(cat, self.z)
 
         result, _ = self.decoder(z, input)
         result = result.view(batch_size * seq_len, -1)
@@ -101,7 +72,9 @@ class CVaDE(nn.Module):
 
         return out, kld
 
-    def loss(self, input, target, lengths, criterion, itetation=None, eval=False):
+    def loss(self, input, target, lengths, criterion, eval=False):
+
+        size = reduce(mul, lengths, 1) if eval else 1
 
         batch_size, _ = target.size()
 
@@ -115,9 +88,9 @@ class CVaDE(nn.Module):
         out = out.view(-1, self.vocab_size)
         target = target.view(-1)
 
-        nll = criterion(out, target) / batch_size
+        nll = criterion(out, target) / (batch_size * size)
 
-        return nll, kld * (self.kl_coef(itetation) if itetation is not None else 1)
+        return nll, kld
 
     def get_cluster(self, input, lengths=None):
 
@@ -132,7 +105,7 @@ class CVaDE(nn.Module):
             if par.requires_grad:
                 yield par
 
-    def _kl_cat(self, posterior):
+    def kl_divergence(self, posterior):
         """
         :param posterior: An float tensor with shape of [batch_size, num_clusters] where each row contains q(c|x, z)
         :return: KL-Divergence estimation for cat latent variables as E_{c ~ q(c|x, z)} [ln(q(c)/p(c))]
@@ -141,12 +114,3 @@ class CVaDE(nn.Module):
         prior = F.softmax(self.p_c_logits, dim=0).expand_as(posterior)
         posterior = F.softmax(posterior, dim=1)
         return (posterior * t.log(posterior / (prior + 1e-12)) + 1e-12).sum(1)
-
-    @staticmethod
-    def _kl_gauss(mu, logvar, mu_c, logvar_c):
-        return 0.5 * (logvar_c - logvar + t.exp(logvar) / (t.exp(logvar_c) + 1e-8) +
-                      t.pow(mu - mu_c, 2) / (t.exp(logvar_c) + 1e-8) - 1).sum(1)
-
-    @staticmethod
-    def kl_coef(i):
-        return tanh(i / 3_000)

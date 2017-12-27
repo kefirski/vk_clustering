@@ -13,7 +13,7 @@ class VecToSeq(nn.Module):
         self.num_layers = num_layers
 
         self.rnn = nn.GRU(
-            input_size=self.z_size,
+            input_size=self.z_size + self.input_size,
             hidden_size=self.hidden_size,
             num_layers=self.num_layers,
             batch_first=True
@@ -33,7 +33,8 @@ class VecToSeq(nn.Module):
             [input, lengths] = pad_packed_sequence(input, batch_first=True)
 
         [_, seq_len, _] = input.size()
-        input = z.unsqueeze(1).repeat(1, seq_len, 1)
+        z = z.unsqueeze(1).repeat(1, seq_len, 1)
+        input = t.cat([input, z], 2)
 
         if is_packed_seq:
             input = pack_padded_sequence(input, lengths, batch_first=True)

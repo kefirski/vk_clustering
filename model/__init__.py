@@ -1,1 +1,1 @@
-from .cvade import CVaDE
+from .vdb import VDB

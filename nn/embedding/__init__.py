@@ -1,1 +1,1 @@
-from .positional_embedding import PositionalEmbeddings
+from .embedding import Embeddings
